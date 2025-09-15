@@ -1,25 +1,28 @@
-
 import logging
 import time
 from typing import Optional
 import requests
-from config import settings
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
 
 class SlackNotifier:
     def __init__(self) -> None:
-        self.webhook_url = settings.slack_webhook_url
-        if not self.webhook_url and not settings.slack_bot_token:
+        self.webhook_url = os.getenv("SLACK_WEBHOOK_URL")
+        if not self.webhook_url and not os.getenv("SLACK_BOT_TOKEN"):
             logger.warning("No Slack webhook or bot token configured; Slack notifications disabled.")
         self.client = None
         self.channel_id = None
-        if settings.slack_bot_token:
+        if os.getenv("SLACK_BOT_TOKEN"):
             try:
                 from slack_sdk import WebClient
-                self.client = WebClient(token=settings.slack_bot_token)
-                self.channel_id = settings.slack_channel_id
+                self.client = WebClient(token=os.getenv("SLACK_BOT_TOKEN"))
+                self.channel_id = os.getenv("SLACK_CHANNEL_ID")
             except ImportError:
                 logger.warning("slack_sdk not installed; cannot use bot token.")
 

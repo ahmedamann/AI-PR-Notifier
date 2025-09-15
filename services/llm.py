@@ -1,7 +1,11 @@
 import logging
+import os
 from typing import List
 
-from config import settings
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -9,6 +13,7 @@ MAX_CHARS_PER_CHUNK = 12000  # conservative per-request size bound
 
 
 def _chunk_text(text: str, max_chars: int = MAX_CHARS_PER_CHUNK) -> List[str]:
+    print(f"Chunking text with max_chars={max_chars}")  # Debugging print
     if len(text) <= max_chars:
         return [text]
     chunks: List[str] = []
@@ -24,6 +29,7 @@ def _chunk_text(text: str, max_chars: int = MAX_CHARS_PER_CHUNK) -> List[str]:
             current_len += len(line)
     if current:
         chunks.append("".join(current))
+    print(f"Generated {len(chunks)} chunks")  # Debugging print
     return chunks
 
 
@@ -41,30 +47,43 @@ USER_PROMPT_TEMPLATE = (
 
 class LlmClient:
     def __init__(self) -> None:
-        self.api_key = settings.groq_api_key
+        print("Initializing LlmClient")  # Debugging print
+        self.api_key = os.getenv("GROQ_API_KEY")
+        self.model = "llama-3.3-70b-versatile"
+
         if not self.api_key:
-            logger.warning("GROQ_API_KEY not configured. Summaries will be truncated diffs.")
-        # Always use GROQ_MODEL from settings
-        self.model = settings.groq_model
+            print("GROQ_API_KEY not configured. Summaries will be truncated diffs.")  # Debugging print
+
+        from openai import OpenAI
+        # Use OpenAI client but point to Groq
+        self.client = OpenAI(
+            api_key=self.api_key,
+            base_url="https://api.groq.com/openai/v1",
+        )
+        print("OpenAI client initialized successfully")  # Debugging print
 
     def summarize(self, diff_text: str) -> str:
+        print("Starting summarization")  # Debugging print
         chunks = _chunk_text(diff_text)
         if not self.api_key:
             preview = diff_text[:1000]
+            print("LLM unavailable. Returning truncated diff preview.")  # Debugging print
             return f"LLM unavailable. Diff preview (truncated):\n{preview}"
 
         if len(chunks) == 1:
+            print("Single chunk detected. Summarizing directly.")  # Debugging print
             return self._summarize_single(chunks[0])
+        print(f"Multiple chunks detected: {len(chunks)}. Summarizing each chunk.")  # Debugging print
         partials = [self._summarize_single(c) for c in chunks]
         merged = "\n".join(f"- {p.strip()}" for p in partials if p.strip())
+        print("Merging partial summaries")  # Debugging print
         # Final merge pass
         return self._summarize_single(merged)
 
     def _summarize_single(self, text: str) -> str:
+        print("Summarizing single chunk")  # Debugging print
         try:
-            from groq import Groq  # type: ignore
-            client = Groq(api_key=self.api_key)
-            completion = client.chat.completions.create(
+            completion = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
@@ -73,7 +92,9 @@ class LlmClient:
                 temperature=0.2,
                 max_tokens=500,
             )
+            print("Summarization successful")  # Debugging print
             return completion.choices[0].message.content.strip()
         except Exception as e:
+            print(f"Groq summarization failed: {e}")  # Debugging print
             logger.exception("Groq summarization failed: %s", e)
             return text[:800]
