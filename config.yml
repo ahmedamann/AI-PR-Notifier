@@ -1,8 +1,0 @@
-github_token: ""
-github_webhook_secret: ""
-slack_bot_token: "7bWpDB94wWSvKgzLdM8Kg2HV"
-slack_channel_id: "C09FN5J7G9X"
-groq_api_key: "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"
-groq_model: "openai/gpt-oss-120b"
-cooldown_seconds: 120
-slack_webhook_url: "https://hooks.slack.com/services/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"
