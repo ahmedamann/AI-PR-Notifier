@@ -41,11 +41,11 @@ USER_PROMPT_TEMPLATE = (
 
 class LlmClient:
     def __init__(self) -> None:
-        self.api_key = settings.get_groq_api_key()
+        self.api_key = settings.groq_api_key
         if not self.api_key:
             logger.warning("GROQ_API_KEY not configured. Summaries will be truncated diffs.")
-        # Prefer MODEL_CHECKPOINT if provided; else use GROQ_MODEL
-        self.model = settings.model_checkpoint.strip() or settings.groq_model
+        # Always use GROQ_MODEL from settings
+        self.model = settings.groq_model
 
     def summarize(self, diff_text: str) -> str:
         chunks = _chunk_text(diff_text)
