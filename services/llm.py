@@ -9,7 +9,7 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-MAX_CHARS_PER_CHUNK = 12000  # conservative per-request size bound
+MAX_CHARS_PER_CHUNK = 12000
 
 
 def _chunk_text(text: str, max_chars: int = MAX_CHARS_PER_CHUNK) -> List[str]:
@@ -49,10 +49,7 @@ class LlmClient:
     def __init__(self) -> None:
         print("Initializing LlmClient")  # Debugging print
         self.api_key = os.getenv("GROQ_API_KEY")
-        self.model = "llama-3.3-70b-versatile"
-
-        if not self.api_key:
-            print("GROQ_API_KEY not configured. Summaries will be truncated diffs.")  # Debugging print
+        self.model = "openai/gpt-oss-120b"
 
         from openai import OpenAI
         # Use OpenAI client but point to Groq
@@ -65,10 +62,6 @@ class LlmClient:
     def summarize(self, diff_text: str) -> str:
         print("Starting summarization")  # Debugging print
         chunks = _chunk_text(diff_text)
-        if not self.api_key:
-            preview = diff_text[:1000]
-            print("LLM unavailable. Returning truncated diff preview.")  # Debugging print
-            return f"LLM unavailable. Diff preview (truncated):\n{preview}"
 
         if len(chunks) == 1:
             print("Single chunk detected. Summarizing directly.")  # Debugging print
@@ -81,7 +74,6 @@ class LlmClient:
         return self._summarize_single(merged)
 
     def _summarize_single(self, text: str) -> str:
-        print("Summarizing single chunk")  # Debugging print
         try:
             completion = self.client.chat.completions.create(
                 model=self.model,
@@ -89,12 +81,10 @@ class LlmClient:
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": USER_PROMPT_TEMPLATE.format(diff=text)},
                 ],
-                temperature=0.2,
-                max_tokens=500,
+                temperature=0.3,
             )
-            print("Summarization successful")  # Debugging print
+            print("Summarization successful")
             return completion.choices[0].message.content.strip()
         except Exception as e:
-            print(f"Groq summarization failed: {e}")  # Debugging print
-            logger.exception("Groq summarization failed: %s", e)
+            print(f"Groq summarization failed: {e}")
             return text[:800]
